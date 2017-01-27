@@ -1,0 +1,3 @@
+[submodule "CarND-Vehicle-Detection"]
+	path = CarND-Vehicle-Detection
+	url = https://github.com/udacity/CarND-Vehicle-Detection
