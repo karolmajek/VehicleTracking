@@ -11,11 +11,13 @@ Udacity Self Driving Nanodegree - Vehicle Tracking project
 
 ## Datasets
 
-Label | Link
----  |--
-Vehicles | https://s3.amazonaws.com/udacity-sdc/Vehicle_Tracking/vehicles.zip
-Non vehicles | https://s3.amazonaws.com/udacity-sdc/Vehicle_Tracking/non-vehicles.zip
-Annotated data from Udacity Self-driving car repo [by Autti] | http://bit.ly/udacity-annotations-autti
+
+
+|Label | Link|
+|----- |---- |
+|Vehicles | https://s3.amazonaws.com/udacity-sdc/Vehicle_Tracking/vehicles.zip |
+|Non vehicles | https://s3.amazonaws.com/udacity-sdc/Vehicle_Tracking/non-vehicles.zip |
+|Annotated data from Udacity Self-driving car repo [by Autti] | http://bit.ly/udacity-annotations-autti |
 
 More datasets:
 https://github.com/udacity/self-driving-car/tree/master/annotations
