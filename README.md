@@ -11,8 +11,6 @@ Udacity Self Driving Nanodegree - Vehicle Tracking project
 
 ## Datasets
 
-
-
 |Label | Link|
 |----- |---- |
 |Vehicles | https://s3.amazonaws.com/udacity-sdc/Vehicle_Tracking/vehicles.zip |
