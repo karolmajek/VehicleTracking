@@ -38,11 +38,44 @@ def loadImages(cars,noncars):
         pickle.dump(data, open("cars-noncars-dataset.p", "wb"))
     return cars_imgs,noncars_imgs
 
+def showHistograms(img,label):
+    hsv = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+    luv = cv2.cvtColor(img, cv2.COLOR_RGB2LUV)
+    hls = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
+    yuv = cv2.cvtColor(img, cv2.COLOR_RGB2YUV)
+    YCrCb = cv2.cvtColor(img, cv2.COLOR_RGB2YCrCb)
+
+    colorspaces={'R G B':img,'H S V':hsv,'L U V':luv,'H L S':hls,'Y U V':yuv,'Y Cr Cb':YCrCb}
+
+    fig = plt.figure(figsize=(len(colorspaces.keys()),3))
+    count=0
+    for name,img in colorspaces.items():
+        rhist = np.histogram(img[:,:,0], bins=32, range=(0, 256))
+        ghist = np.histogram(img[:,:,1], bins=32, range=(0, 256))
+        bhist = np.histogram(img[:,:,2], bins=32, range=(0, 256))
+
+        bin_edges = rhist[1]
+        bin_centers = (bin_edges[1:]  + bin_edges[0:len(bin_edges)-1])/2
+
+        names=name.split(' ')
+
+        plt.subplot2grid((len(colorspaces.keys()),3), (count,0))
+        plt.bar(bin_centers, rhist[0])
+        plt.xlim(0, 256)
+        plt.title(names[0]+' Histogram')
+        plt.subplot2grid((len(colorspaces.keys()),3), (count,1))
+        plt.bar(bin_centers, ghist[0])
+        plt.xlim(0, 256)
+        plt.title(names[1]+' Histogram')
+        plt.subplot2grid((len(colorspaces.keys()),3), (count,2))
+        plt.bar(bin_centers, bhist[0])
+        plt.xlim(0, 256)
+        plt.title(names[2]+' Histogram')
+        count=count+1
+    plt.show()
+
 # Define a function to return HOG features and visualization
-def get_hog_features(img, vis=True):
-    pix_per_cell = 3
-    cell_per_block = 2
-    orient = 2
+def get_hog_features(img, vis=True, pix_per_cell = 3, cell_per_block = 2, orient = 2):
     if vis == True:
         features, hog_image = hog(img, orientations=orient, pixels_per_cell=(pix_per_cell, pix_per_cell), cells_per_block=(cell_per_block, cell_per_block), visualise=True, feature_vector=False)
         # Use skimage.hog() to get both features and a visualization
@@ -105,10 +138,6 @@ def extract_features(image, cspace='RGB', spatial_size=(32, 32),
     # Apply color_hist() also with a color space option now
     hist_features = color_hist(feature_image, nbins=hist_bins, bins_range=hist_range)
     # Append the new feature vector to the features list
-    # print('#'*50)
-    # print(spatial_features.shape)
-    # print(hist_features.shape)
-    # print('#'*50)
     return np.concatenate((spatial_features, hist_features))
 
 
@@ -116,8 +145,16 @@ def extract_features(image, cspace='RGB', spatial_size=(32, 32),
 cars_imgs,noncars_imgs=loadImages(cars,noncars)
 car_features=[]
 noncar_features=[]
+cv2.imshow('noncar',noncars_imgs[0])
+cv2.waitKey(0)
+showHistograms(noncars_imgs[0],'noncar')
 
-
+def get_features(img):
+    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+    features = get_hog_features(gray, vis=False, pix_per_cell = 2, cell_per_block = 2, orient = 8)
+    # return features
+    feat=extract_features(img, cspace='HSV', spatial_size=(8, 8), hist_bins=8, hist_range=(0, 256))
+    return np.concatenate((features,feat))
 
 try:
     data = pickle.load(open("cars-noncars-features.p", "rb"))
@@ -127,27 +164,12 @@ try:
 except (OSError, IOError) as e:
     print('Generating features')
     for img in tqdm(cars_imgs):
-        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-        # features, hog_image = get_hog_features(gray)
-        # cv2.imshow('hog',cv2.resize(hog_image,(200,200)))
-        # cv2.waitKey(1)
-        features = get_hog_features(gray,False)
-        feat=extract_features(img, cspace='RGB', spatial_size=(32, 32), hist_bins=32, hist_range=(0, 256))
-        # print(features.dtype)
-        # print(feat.dtype)
-        car_features.append(np.concatenate((features,feat)))
-        # print(feat.shape)
-        # print(features.shape)
+        features = get_features(img)
+        car_features.append(features)
     for img in tqdm(noncars_imgs):
-        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-        # features, hog_image = get_hog_features(gray)
-        # cv2.imshow('hog',cv2.resize(hog_image,(200,200)))
-        # cv2.waitKey(1)
-        features = get_hog_features(gray,False)
-        feat=extract_features(img, cspace='RGB', spatial_size=(32, 32), hist_bins=32, hist_range=(0, 256))
-        noncar_features.append(np.concatenate((features,feat)))
-        # print(feat.shape)
-        # print(features.shape)
+        features = get_features(img)
+        noncar_features.append(features)
+
     car_features=np.array(car_features)
     noncar_features=np.array(noncar_features)
 
@@ -157,16 +179,11 @@ except (OSError, IOError) as e:
 
 
 
-
-
 if len(car_features) > 0:
     # Create an array stack of feature vectors
 
     X = np.vstack((car_features, noncar_features)).astype(np.float64)
     y = np.hstack((np.ones(len(car_features)),np.zeros(len(noncar_features))))
-
-    print(X.shape,X.dtype)
-    print(y.shape,y.dtype)
 
     # Fit a per-column scaler
     X_scaler = StandardScaler().fit(X)
@@ -209,7 +226,118 @@ if len(car_features) > 0:
     svc.fit(X_train, y_train)
 
     print('Test Accuracy of SVC = ', svc.score(X_test, y_test))
-    print(X_test.shape)
-    print(X_test[0:10].shape)
     print('My SVC predicts: ', svc.predict(X_test[0:10]))
     print('For labels: ', y_test[0:10])
+
+# Here is your draw_boxes function from the previous exercise
+def draw_boxes(img, bboxes, color=(0, 0, 255), thick=6):
+    # Make a copy of the image
+    imcopy = np.copy(img)
+    # Iterate through the bounding boxes
+    for bbox in bboxes:
+        # Draw a rectangle given bbox coordinates
+        cv2.rectangle(imcopy, bbox[0], bbox[1], color, thick)
+    # Return the image copy with boxes drawn
+    return imcopy
+
+    # Define a function that takes an image,
+# start and stop positions in both x and y,
+# window size (x and y dimensions),
+# and overlap fraction (for both x and y)
+def slide_window(img, x_start_stop=[None, None], y_start_stop=[None, None],
+                    xy_window=(64, 64), xy_overlap=(0.5, 0.5)):
+    # If x and/or y start/stop positions not defined, set to image size
+    if x_start_stop[0] == None:
+        x_start_stop[0] = 0
+    if x_start_stop[1] == None:
+        x_start_stop[1] = img.shape[1]
+    if y_start_stop[0] == None:
+        y_start_stop[0] = 0
+    if y_start_stop[1] == None:
+        y_start_stop[1] = img.shape[0]
+    # Compute the span of the region to be searched
+    xspan = x_start_stop[1] - x_start_stop[0]
+    yspan = y_start_stop[1] - y_start_stop[0]
+    # Compute the number of pixels per step in x/y
+    nx_pix_per_step = np.int(xy_window[0]*(1 - xy_overlap[0]))
+    ny_pix_per_step = np.int(xy_window[1]*(1 - xy_overlap[1]))
+    # Compute the number of windows in x/y
+    nx_windows = np.int(xspan/nx_pix_per_step) - 1
+    ny_windows = np.int(yspan/ny_pix_per_step) - 1
+    # Initialize a list to append window positions to
+    window_list = []
+    # Loop through finding x and y window positions
+    # Note: you could vectorize this step, but in practice
+    # you'll be considering windows one by one with your
+    # classifier, so looping makes sense
+    for ys in range(ny_windows):
+        for xs in range(nx_windows):
+            # Calculate window position
+            startx = xs*nx_pix_per_step + x_start_stop[0]
+            endx = startx + xy_window[0]
+            starty = ys*ny_pix_per_step + y_start_stop[0]
+            endy = starty + xy_window[1]
+            # Append window position to list
+            window_list.append(((startx, starty), (endx, endy)))
+    # Return the list of windows
+    return window_list
+
+image=cv2.imread('datasets/object-dataset/1478019952686311006.jpg')
+
+windows0 = slide_window(image, x_start_stop=[None, None], y_start_stop=[500, 570],
+                    xy_window=(64, 64), xy_overlap=(0.5, 0.5))
+windows1 = slide_window(image, x_start_stop=[None, None], y_start_stop=[470, 600],
+                    xy_window=(128, 128), xy_overlap=(0.5, 0.5))
+windows2 = slide_window(image, x_start_stop=[None, None], y_start_stop=[450,None],
+                    xy_window=(256, 256), xy_overlap=(0.75, 0.5))
+windows3 = slide_window(image, x_start_stop=[None, None], y_start_stop=[200,None],
+                    xy_window=(512,512), xy_overlap=(0.5, 0.5))
+
+windows=windows0+windows1+windows2+windows3
+
+
+window_img = draw_boxes(image, windows1, color=(0, 0, 255), thick=4)
+window_img = draw_boxes(window_img, windows2, color=(255, 0, 0), thick=3)
+window_img = draw_boxes(window_img, windows3, color=(0, 255, 0), thick=2)
+# window_img = draw_boxes(window_img, windows0, color=(255, 255, 0), thick=1)
+cv2.imshow('result',window_img)
+# cv2.waitKey(0)
+# plt.show()
+
+
+
+# Define a function you will pass an image
+# and the list of windows to be searched (output of slide_windows())
+def search_windows(img, windows, clf, scaler):
+    #1) Create an empty list to receive positive detection windows
+    on_windows = []
+    #2) Iterate over all windows in the list
+    for window in tqdm(windows):
+        #3) Extract the test window from original image
+        test_img = cv2.resize(img[window[0][1]:window[1][1], window[0][0]:window[1][0]], (64, 64))
+        cv2.imshow('test',test_img)
+        cv2.waitKey(10)
+        # 4)
+        features = get_features(test_img)
+        print('features.shape',features.shape)
+        #5) Scale extracted features to be fed to classifier
+        test_features = scaler.transform(np.array(features).reshape((1,-1)))
+        #6) Predict using your classifier
+        prediction = clf.predict(test_features.reshape((1,-1)))
+        #7) If positive (prediction == 1) then save the window
+        if prediction == 1:
+            on_windows.append(window)
+    #8) Return windows for positive detections
+    return on_windows
+
+print('XXXX',image.shape)
+
+for fimg in glob.glob('datasets/object-dataset/*.jpg'):
+    print(fimg)
+    image=cv2.imread(fimg)
+    print(type(image))
+    print(image.shape)
+    hot_windows=search_windows(image,windows,svc,X_scaler)
+    window_img = draw_boxes(image.copy(), hot_windows, color=(0, 0, 255), thick=6)
+    cv2.imshow('hot',window_img)
+    cv2.waitKey(0)

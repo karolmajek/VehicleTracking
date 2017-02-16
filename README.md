@@ -20,7 +20,17 @@ Udacity Self Driving Nanodegree - Vehicle Tracking project
 More datasets:
 https://github.com/udacity/self-driving-car/tree/master/annotations
 
+## Colorspaces and histograms
 
+Car
+
+![First car image](images/car0.jpg)
+![Car - histogram](images/car0-histogram.png)
+
+Non-car
+
+![First non-car image](images/noncar0.jpg)
+![Non-car - histogram](images/noncar0-histogram.png)
 ## HOG
 
 ### Choosing parameters
