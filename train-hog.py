@@ -14,6 +14,7 @@ from sklearn.preprocessing import StandardScaler
 from detect import detect,loadNet
 from data import loadImages
 from hog import *
+from scipy.ndimage.measurements import label
 
 model=loadNet()
 model.summary()
@@ -39,7 +40,7 @@ def search_windows(img, windows, clf, scaler):
         pred=svc.predict(X_scaler.transform(get_features(test_img).reshape(1,-1)))
         # print(prediction,pred)
         #7) If positive (prediction == 1) then save the window
-        if pred >0.8:
+        if pred >0.0:
             # cv2.imshow('test',test_img)
             # cv2.waitKey(1)
             on_windows.append(window)
@@ -120,28 +121,45 @@ if len(car_features) > 0:
     print('For labels: ', y_test)
 
 # image=cv2.imread('datasets/object-dataset/1478019952686311006.jpg')
-image=cv2.imread('CarND-Vehicle-Detection/test_images/test1.jpg')
+# image=cv2.imread('CarND-Vehicle-Detection/test_images/test1.jpg')
 
-print(image.shape)
-windows0 = slide_window(image, x_start_stop=[None, None], y_start_stop=[400, None],
-                    xy_window=(64, 64), xy_overlap=(0.75, 0.75))
-windows1 = slide_window(image, x_start_stop=[None, None], y_start_stop=[370, None],
-                    xy_window=(128, 128), xy_overlap=(0.75, 0.75))
-windows2 = slide_window(image, x_start_stop=[None, None], y_start_stop=[450,None],
-                    xy_window=(256, 256), xy_overlap=(0.75, 0.5))
-windows3 = slide_window(image, x_start_stop=[None, None], y_start_stop=[200,None],
-                    xy_window=(512,512), xy_overlap=(0.5, 0.5))
+def generate_windows(image,car_pos):
+    if len(car_pos)==0:
+        windows0 = slide_window(image, x_start_stop=[None, None], y_start_stop=[400, None], xy_window=(64, 64), xy_overlap=(0.1, 0.1))
+        windows1 = slide_window(image, x_start_stop=[None, None], y_start_stop=[400,None], xy_window=(96, 96), xy_overlap=(0.5, 0.5))
+        windows2 = slide_window(image, x_start_stop=[None, None], y_start_stop=[370, None], xy_window=(128, 128), xy_overlap=(0.15, 0.15))
+        windows3 = slide_window(image, x_start_stop=[None, None], y_start_stop=[200,None], xy_window=(256,256), xy_overlap=(0.5, 0.5))
+    else:
+        windows0=[]
+        windows1=[]
+        windows2=[]
+        windows3=[]
+        for x,y in car_pos:
+            xmin=x-100
+            xmax=x+100
+            ymin=y-50
+            ymax=y+50
 
-# windows=windows0+windows1+windows2+windows3
-windows=windows0
+            xmin=max(0,xmin)
+            xmax=min(image.shape[1],xmax)
+            ymin=max(0,ymin)
+            ymax=min(image.shape[0],ymax)
+
+            windows0 = windows0 + slide_window(image, x_start_stop=[xmin, xmax], y_start_stop=[ymin, ymax], xy_window=(64, 64), xy_overlap=(0.75, 0.75))
+            windows1 = windows1 +  slide_window(image, x_start_stop=[xmin, xmax], y_start_stop=[ymin,ymax], xy_window=(96, 96), xy_overlap=(0.75, 0.75))
+            windows2 = windows2 + slide_window(image, x_start_stop=[xmin, xmax], y_start_stop=[ymin, ymax], xy_window=(128, 128), xy_overlap=(0.5, 0.5))
+            windows3 = windows3 + slide_window(image, x_start_stop=[xmin, xmax], y_start_stop=[ymin,ymax], xy_window=(256,256), xy_overlap=(0.5, 0.5))
+    # windows=windows0+windows1+windows2+windows3
+    windows=windows0+windows1+windows2
 
 
-window_img = draw_boxes(image, windows1, color=(0, 0, 255), thick=4)
-window_img = draw_boxes(window_img, windows2, color=(255, 0, 0), thick=3)
-window_img = draw_boxes(window_img, windows3, color=(0, 255, 0), thick=2)
-window_img = draw_boxes(window_img, windows0, color=(0, 255, 255), thick=1)
-cv2.imshow('result',window_img)
-# cv2.waitKey(0)
+    window_img = draw_boxes(image, windows1, color=(0, 0, 255), thick=4)
+    window_img = draw_boxes(window_img, windows2, color=(255, 0, 0), thick=3)
+    window_img = draw_boxes(window_img, windows3, color=(0, 255, 0), thick=2)
+    window_img = draw_boxes(window_img, windows0, color=(0, 255, 255), thick=1)
+    cv2.imshow('result',window_img)
+    # cv2.waitKey(0)
+    return windows
 
 # for fimg in glob.glob('datasets/object-dataset/*.jpg'):
 #     print(fimg)
@@ -159,12 +177,35 @@ cap = cv2.VideoCapture('CarND-Vehicle-Detection/project_video.mp4')
 for i in range(400):
     ret, img = cap.read()
 
+last_car_pos=[]
+
 while(cap.isOpened()):
     ret, img = cap.read()
     if not img is None:
         # cv2.imshow('video',img)
+        windows=generate_windows(img,last_car_pos)
+
         hot_windows=search_windows(img,windows,svc,X_scaler)
-        window_img = draw_boxes(img.copy(), hot_windows, color=(0, 0, 255), thick=6)
-        cv2.imshow('hot',window_img)
+        window_img = draw_boxes(img.copy(), hot_windows, color=(255, 255, 255), thick=1)
+
+        heat = np.zeros_like(img[:,:,0]).astype(np.float)
+        # Add heat to each box in box list
+        heat = add_heat(heat,hot_windows)
+
+        # Apply threshold to help remove false positives
+        heat = apply_threshold(heat,0)
+
+        # Visualize the heatmap when displaying
+        heatmap = np.clip(heat, 0, 255)
+
+        # Find final boxes from heatmap using label function
+        labels = label(heatmap)
+        draw_img,car_pos = draw_labeled_bboxes(np.copy(window_img), labels)
+        print(car_pos)
+        last_car_pos=car_pos
+
+        cv2.imshow('heatmap',heatmap)
+
+        cv2.imshow('draw_img',draw_img)
         cv2.waitKey(1)
 cap.release()
