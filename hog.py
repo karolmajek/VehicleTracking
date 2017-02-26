@@ -166,8 +166,8 @@ def slide_window(img, x_start_stop=[None, None], y_start_stop=[None, None],
     # Note: you could vectorize this step, but in practice
     # you'll be considering windows one by one with your
     # classifier, so looping makes sense
-    for ys in range(ny_windows):
-        for xs in range(nx_windows):
+    for ys in range(ny_windows+1):
+        for xs in range(nx_windows+1):
             # Calculate window position
             startx = xs*nx_pix_per_step + x_start_stop[0]
             endx = startx + xy_window[0]
@@ -233,7 +233,7 @@ def draw_labeled_bboxes(img, labels):
         # Define a bounding box based on min/max x and y
         bbox = ((np.min(nonzerox), np.min(nonzeroy)), (np.max(nonzerox), np.max(nonzeroy)))
 
-        car_pos.append((int((bbox[0][0]+bbox[1][0])/2),int((bbox[0][1]+bbox[1][1])/2)))
+        car_pos.append(bbox)
 
         # Draw the box on the image
         cv2.rectangle(img, bbox[0], bbox[1], (0,0,255), 6)

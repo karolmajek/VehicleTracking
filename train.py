@@ -33,27 +33,6 @@ noncars_files=glob.glob('datasets/non-vehicles/*/*.png')
 print('Cars images:',len(cars_files))
 print('Non-cars images:',len(noncars_files))
 
-# def loadImages(cars,noncars):
-#     cars_imgs=[]
-#     noncars_imgs=[]
-#     try:
-#         data = pickle.load(open("cars-noncars-dataset.p", "rb"))
-#         print('Loading pickled data')
-#         cars_imgs=data['cars']
-#         noncars_imgs=data['noncars']
-#     except (OSError, IOError) as e:
-#         print('Loading images')
-#         for fname in tqdm(cars):
-#             cars_imgs.append(cv2.imread(fname))
-#         for fname in tqdm(noncars):
-#             noncars_imgs.append(cv2.imread(fname))
-#         print('Pickling data')
-#         data={'cars':np.array(cars_imgs),'noncars':np.array(noncars_imgs)}
-#         pickle.dump(data, open("cars-noncars-dataset.p", "wb"))
-#     return cars_imgs,noncars_imgs
-#
-# X_train,Y_train=loadImages(cars_files,noncars_files)
-
 X_train=cars_files + noncars_files
 y_train=np.array([1]*len(cars_files) + [0]*len(noncars_files))
 
@@ -147,20 +126,6 @@ def valGenerator():
                     batchx=[]
                     batchy=[]
                     yield bx,by
-#
-# fig, bx = plt.subplots();
-# width=0.4;
-# ind = np.arange(len(count));
-# prev_count=[]
-# for cc in count:
-#     prev_count.append(cc)
-#
-# bx.bar(ind,count,width=0.2,color='b');
-# bx.bar(ind+width,prev_count,width=0.2,color='r');
-# bx.set_ylabel('Number of images');
-# bx.set_title('Images count per label');
-# bx.set_xticks(ind+width);
-# bx.set_xticklabels([str(x) for x in list(range(len(count)))], rotation=90,ha='center');
 
 input_shape=process_image(np.zeros(shape=(64,64,3))).shape
 
